@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Takım Kurucu</title>
+    <style>
+        /* GENEL AYARLAR */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: white;
+            overflow: hidden;
+        }
+
+        /* GİRİŞ EKRANI */
+        #intro-screen {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+            background-color: white;
+            position: absolute;
+            z-index: 100;
+            transition: opacity 0.5s ease;
+        }
+
+        #start-btn {
+            padding: 20px 40px;
+            font-size: 24px;
+            background-color: #2ecc71;
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            font-weight: bold;
+        }
+
+        #start-btn:active {
+            transform: scale(0.95);
+        }
+
+        /* SAHA ALANI */
+        #field-container {
+            display: none;
+            width: 100%;
+            height: 100%;
+            background-image: url('https://i.hizliresim.com/a5tj9n8.png');
+            background-size: 100% 100%;
+            background-position: center;
+            background-repeat: no-repeat;
+            position: relative;
+        }
+
+        /* OYUNCU YUVARLAKLARI */
+        .player {
+            width: 40px;
+            height: 40px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 3px solid #333;
+            border-radius: 50%;
+            position: absolute;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 10px;
+            font-weight: bold;
+            color: #333;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+            text-align: center;
+            z-index: 10;
+            transform: translate(-50%, -50%);
+        }
+
+        .player span {
+            pointer-events: none;
+            display: block;
+            width: 100%;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            font-size: 9px;
+        }
+
+        /* İSİM ETİKETİ */
+        .player-name-label {
+            position: absolute;
+            bottom: -18px;
+            background-color: rgba(0,0,0,0.7);
+            color: white;
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-size: 10px;
+            white-space: nowrap;
+            display: none;
+        }
+
+        /* TAKIM RENKLERİ */
+        .team-a { border-color: #e74c3c; } /* Kırmızı Takım */
+        .team-b { border-color: #3498db; } /* Mavi Takım */
+
+        /* YAN SEKME (SIDEBAR) */
+        #sidebar {
+            position: fixed;
+            top: 0;
+            right: -300px;
+            width: 250px;
+            height: 100%;
+            background-color: #fff;
+            box-shadow: -2px 0 10px rgba(0,0,0,0.2);
+            transition: right 0.3s ease;
+            z-index: 200;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #sidebar.active {
+            right: 0;
+        }
+
+        .sidebar-header {
+            padding: 15px;
+            background-color: #333;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+        }
+
+        .player-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            overflow-y: auto;
+            flex-grow: 1;
+        }
+
+        .player-list li {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .player-list li:hover {
+            background-color: #f0f0f0;
+        }
+
+        /* KARARTMA EFEKTİ */
+        #overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 150;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="intro-screen">
+        <button id="start-btn">Takım Kur</button>
+    </div>
+
+    <div id="field-container"></div>
+
+    <div id="overlay" onclick="closeSidebar()"></div>
+
+    <div id="sidebar">
+        <div class="sidebar-header">
+            <span>Oyuncu Seç</span>
+            <button class="close-btn" onclick="closeSidebar()">X</button>
+        </div>
+        <ul class="player-list" id="player-list-ul"></ul>
+    </div>
+
+    <script>
+        // OYUNCU HAVUZU (Hüseyin eklendi)
+        const playerNames = [
+            "Hakan", "Ulaş", "Onur", "Şahin", "Sabri", "Soner", 
+            "Furkan Ç", "Furkan", "Ahmet", "Muhammed", "Caner", 
+            "Mustafa", "Mustafa babası", "Dönerci", "Hüseyin",
+            "Öğrenci 1", "Öğrenci 2", "Öğrenci 3"
+        ];
+
+        let currentSelectedCircle = null;
+
+        // SAYFA YÜKLENDİĞİNDE
+        document.addEventListener('DOMContentLoaded', () => {
+            const introScreen = document.getElementById('intro-screen');
+            const startBtn = document.getElementById('start-btn');
+            const fieldContainer = document.getElementById('field-container');
+            const playerListUl = document.getElementById('player-list-ul');
+
+            // Giriş Butonu
+            startBtn.addEventListener('click', () => {
+                introScreen.style.opacity = '0';
+                setTimeout(() => {
+                    introScreen.style.display = 'none';
+                    fieldContainer.style.display = 'block';
+                    initField(); 
+                }, 500);
+            });
+
+            // Menü Listesini Oluştur
+            playerNames.forEach(name => {
+                const li = document.createElement('li');
+                li.textContent = name;
+                li.onclick = () => assignPlayer(name);
+                playerListUl.appendChild(li);
+            });
+        });
+
+        // SAHAYI OLUŞTURMA FONKSİYONU
+        function initField() {
+            const field = document.getElementById('field-container');
+            
+            // Takım 1 (Üst Yarı) - Kırmızı - 3-2-1
+            const team1Positions = [
+                { t: 5, l: 50, role: 'GK' },   // Kaleci
+                { t: 20, l: 20, role: 'DEF' }, // Sol Bek
+                { t: 20, l: 50, role: 'DEF' }, // Stoper
+                { t: 20, l: 80, role: 'DEF' }, // Sağ Bek
+                { t: 35, l: 35, role: 'MID' }, // Orta Saha Sol
+                { t: 35, l: 65, role: 'MID' }, // Orta Saha Sağ
+                { t: 45, l: 50, role: 'FWD' }  // Forvet
+            ];
+
+            // Takım 2 (Alt Yarı) - Mavi - 3-2-1
+            const team2Positions = [
+                { t: 95, l: 50, role: 'GK' },   // Kaleci
+                { t: 80, l: 20, role: 'DEF' },  // Sol Bek
+                { t: 80, l: 50, role: 'DEF' },  // Stoper
+                { t: 80, l: 80, role: 'DEF' },  // Sağ Bek
+                { t: 65, l: 35, role: 'MID' },  // Orta Saha Sol
+                { t: 65, l: 65, role: 'MID' },  // Orta Saha Sağ
+                { t: 55, l: 50, role: 'FWD' }   // Forvet
+            ];
+
+            createTeam(team1Positions, 'team-a', field);
+            createTeam(team2Positions, 'team-b', field);
+        }
+
+        function createTeam(positions, teamClass, container) {
+            positions.forEach((pos) => {
+                const circle = document.createElement('div');
+                circle.className = `player ${teamClass}`;
+                circle.style.top = pos.t + '%';
+                circle.style.left = pos.l + '%';
+                circle.innerHTML = `<span>+</span><div class="player-name-label"></div>`;
+                
+                circle.onclick = () => openSidebar(circle);
+                
+                container.appendChild(circle);
+            });
+        }
+
+        // YAN MENÜ İŞLEMLERİ
+        function openSidebar(circleElement) {
+            currentSelectedCircle = circleElement;
+            document.getElementById('sidebar').classList.add('active');
+            document.getElementById('overlay').style.display = 'block';
+        }
+
+        function closeSidebar() {
+            document.getElementById('sidebar').classList.remove('active');
+            document.getElementById('overlay').style.display = 'none';
+            currentSelectedCircle = null;
+        }
+
+        // İSİM ATAMA
+        function assignPlayer(name) {
+            if (currentSelectedCircle) {
+                const label = currentSelectedCircle.querySelector('.player-name-label');
+                const span = currentSelectedCircle.querySelector('span');
+                
+                // Baş harfleri al
+                const initials = name.split(' ').map(n => n[0]).join('');
+                span.textContent = initials;
+                
+                // Tam ismi etikete yaz
+                label.textContent = name;
+                label.style.display = 'block';
+                
+                // Rengi değiştir
+                currentSelectedCircle.style.backgroundColor = "#f1c40f"; 
+            }
+            closeSidebar();
+        }
+    </script>
+</body>
+</html>
